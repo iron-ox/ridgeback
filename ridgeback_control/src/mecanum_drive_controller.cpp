@@ -345,7 +345,7 @@ void MecanumDriveController::cmdVelCallback(const geometry_msgs::Twist& command)
 {
   if(isRunning())
   {
-    command_struct_.ang   = -command.angular.z; // HACK TO FIX CONTROL FOR DEMO -JDB
+    command_struct_.ang   = command.angular.z;
     command_struct_.linX  = command.linear.x;
     command_struct_.linY  = command.linear.y;
     command_struct_.stamp = ros::Time::now();
