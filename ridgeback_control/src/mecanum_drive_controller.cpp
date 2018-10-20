@@ -206,9 +206,9 @@ MecanumDriveController::WheelVelocities MecanumDriveController::calculateIkFlipp
                                                                                    double wheels_b)
 {
   MecanumDriveController::WheelVelocities wheel_velocities;
-  // Do not rotate velocities
-  double vx = linX;
-  double vy = linY;
+  // Do not rotate but flip the velocities
+  double vx = -linX;
+  double vy = -linY;
 
   // Calculate the wheels geometric constant
   double wheels_k = std::sqrt(wheels_a * wheels_a + wheels_b * wheels_b) * sin(M_PI_4 - atan2(wheels_b, wheels_a));

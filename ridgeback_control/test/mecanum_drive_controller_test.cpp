@@ -112,17 +112,17 @@ TEST(MecanumDriveControllerTest, calculateInverseKinematicFlippedConfigurationX)
   // Positive in x (Forward)
   MecanumDriveController::WheelVelocities velocities;
   velocities = MecanumDriveController::calculateIkFlipped(1, 0, 0, r, a, b);
-  EXPECT_DOUBLE_EQ(velocities.w0_vel, -10);
-  EXPECT_DOUBLE_EQ(velocities.w1_vel, -10);
-  EXPECT_DOUBLE_EQ(velocities.w2_vel, 10);
-  EXPECT_DOUBLE_EQ(velocities.w3_vel, 10);
-
-  // Negative in x (back)
-  velocities = MecanumDriveController::calculateIkFlipped(-1, 0, 0, r, a, b);
   EXPECT_DOUBLE_EQ(velocities.w0_vel, 10);
   EXPECT_DOUBLE_EQ(velocities.w1_vel, 10);
   EXPECT_DOUBLE_EQ(velocities.w2_vel, -10);
   EXPECT_DOUBLE_EQ(velocities.w3_vel, -10);
+
+  // Negative in x (back)
+  velocities = MecanumDriveController::calculateIkFlipped(-1, 0, 0, r, a, b);
+  EXPECT_DOUBLE_EQ(velocities.w0_vel, -10);
+  EXPECT_DOUBLE_EQ(velocities.w1_vel, -10);
+  EXPECT_DOUBLE_EQ(velocities.w2_vel, 10);
+  EXPECT_DOUBLE_EQ(velocities.w3_vel, 10);
 }
 
 TEST(MecanumDriveControllerTest, calculateInverseKinematicFlippedConfigurationY)
@@ -134,17 +134,17 @@ TEST(MecanumDriveControllerTest, calculateInverseKinematicFlippedConfigurationY)
 
   // Positive in y (right)
   velocities = MecanumDriveController::calculateIkFlipped(0, 1, 0, r, a, b);
-  EXPECT_DOUBLE_EQ(velocities.w0_vel, 10);
-  EXPECT_DOUBLE_EQ(velocities.w1_vel, -10);
-  EXPECT_DOUBLE_EQ(velocities.w2_vel, -10);
-  EXPECT_DOUBLE_EQ(velocities.w3_vel, 10);
-
-  // Negative in y (left)
-  velocities = MecanumDriveController::calculateIkFlipped(0, -1, 0, r, a, b);
   EXPECT_DOUBLE_EQ(velocities.w0_vel, -10);
   EXPECT_DOUBLE_EQ(velocities.w1_vel, 10);
   EXPECT_DOUBLE_EQ(velocities.w2_vel, 10);
   EXPECT_DOUBLE_EQ(velocities.w3_vel, -10);
+
+  // Negative in y (left)
+  velocities = MecanumDriveController::calculateIkFlipped(0, -1, 0, r, a, b);
+  EXPECT_DOUBLE_EQ(velocities.w0_vel, 10);
+  EXPECT_DOUBLE_EQ(velocities.w1_vel, -10);
+  EXPECT_DOUBLE_EQ(velocities.w2_vel, -10);
+  EXPECT_DOUBLE_EQ(velocities.w3_vel, 10);
 }
 
 TEST(MecanumDriveControllerTest, calculateInverseKinematicFlippedConfigurationRotations)
