@@ -42,7 +42,6 @@ install(DIRECTORY config launch
 )
 
 if(CATKIN_ENABLE_TESTING)
-  # find_package(gtest REQUIRED)
   find_package(roslaunch REQUIRED)
   catkin_add_gtest(mecanum_drive_controller_test test/mecanum_drive_controller_test.cpp)
   target_link_libraries(mecanum_drive_controller_test mecanum_drive_controller ${catkin_LIBRARIES} gtest_main)
