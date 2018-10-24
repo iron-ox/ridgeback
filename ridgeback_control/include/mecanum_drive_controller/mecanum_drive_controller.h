@@ -39,6 +39,7 @@
 #include <controller_interface/controller.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <pluginlib/class_list_macros.h>
+#include <urdf/model.h>
 
 #include <nav_msgs/Odometry.h>
 #include <tf/tfMessage.h>
@@ -96,6 +97,22 @@ public:
    */
   void stopping(const ros::Time& time);
 
+  struct WheelVelocities
+  {
+    double w0_vel;
+    double w1_vel;
+    double w2_vel;
+    double w3_vel;
+  };
+
+  static WheelVelocities calculateIkNormal(double linX, double linY, double ang,
+                                           double wheels_radius, double wheels_a,
+                                           double wheels_b);
+
+  static WheelVelocities calculateIkFlipped(double linX, double linY, double ang,
+                                            double wheels_radius, double wheels_a,
+                                            double wheels_b);
+
 private:
   std::string name_;
 
@@ -120,6 +137,7 @@ private:
 
     Commands() : linX(0.0), linY(0.0), ang(0.0), stamp(0.0) {}
   };
+
   realtime_tools::RealtimeBuffer<Commands> command_;
   Commands command_struct_;
   ros::Subscriber sub_command_;
@@ -130,9 +148,11 @@ private:
   Odometry odometry_;
   geometry_msgs::TransformStamped odom_frame_;
 
-  /// Wheel radius (assuming it's the same for the left and right wheels):
   bool use_realigned_roller_joints_;
+  /// Selects which inverse kinematic model to use.
+  bool use_flipped_geometry_;
   double wheels_k_; // wheels geometric param used in mecanum wheels' ik
+  /// Wheel radius (assuming it's the same for the left and right wheels):
   double wheels_radius_;
   double wheel_separation_x_;
   double wheel_separation_y_;

@@ -27,6 +27,7 @@
   <exec_depend>topic_tools</exec_depend>
 
   <test_depend>roslaunch</test_depend>
+  <test_depend>gtest</test_depend>
 
   <export>
     <controller_interface plugin="${prefix}/mecanum_drive_controller_plugins.xml"/>

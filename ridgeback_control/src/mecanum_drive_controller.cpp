@@ -44,6 +44,8 @@
 
 #include <mecanum_drive_controller/mecanum_drive_controller.h>
 
+#include <cmath>
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static bool isCylinderOrSphere(const urdf::LinkConstSharedPtr& link)
 {
@@ -82,6 +84,7 @@ MecanumDriveController::MecanumDriveController()
   : open_loop_(false)
   , command_struct_()
   , use_realigned_roller_joints_(false)
+  , use_flipped_geometry_(false)
   , wheels_k_(0.0)
   , wheels_radius_(0.0)
   , cmd_vel_timeout_(0.5)
@@ -104,6 +107,10 @@ bool MecanumDriveController::init(hardware_interface::VelocityJointInterface* hw
   // Option use_realigned_roller_joints
   controller_nh.param("use_realigned_roller_joints", use_realigned_roller_joints_, use_realigned_roller_joints_);
   ROS_INFO_STREAM_NAMED(name_, "Use the roller's radius rather than the wheel's: " << use_realigned_roller_joints_ << ".");
+
+  // Option use_flipped_geometry
+  controller_nh.param("use_flipped_geometry", use_flipped_geometry_, use_flipped_geometry_);
+  ROS_INFO_STREAM_NAMED(name_, "Use the flipped geometry mode: " << use_flipped_geometry_ << ".");
 
   // Get joint names from the parameter server
   std::string wheel0_name;
@@ -181,6 +188,38 @@ bool MecanumDriveController::init(hardware_interface::VelocityJointInterface* hw
   return true;
 }
 
+MecanumDriveController::WheelVelocities MecanumDriveController::calculateIkNormal(double linX, double linY, double ang,
+                                                                                  double wheels_radius, double wheels_a,
+                                                                                  double wheels_b)
+{
+  MecanumDriveController::WheelVelocities wheel_velocities;
+  double wheels_k = wheels_a + wheels_b;
+  wheel_velocities.w0_vel = 1.0 / wheels_radius * (linX - linY - wheels_k * ang);
+  wheel_velocities.w1_vel = 1.0 / wheels_radius * (linX + linY - wheels_k * ang);
+  wheel_velocities.w2_vel = 1.0 / wheels_radius * (linX - linY + wheels_k * ang);
+  wheel_velocities.w3_vel = 1.0 / wheels_radius * (linX + linY + wheels_k * ang);
+  return wheel_velocities;
+}
+
+MecanumDriveController::WheelVelocities MecanumDriveController::calculateIkFlipped(double linX, double linY, double ang,
+                                                                                   double wheels_radius, double wheels_a,
+                                                                                   double wheels_b)
+{
+  MecanumDriveController::WheelVelocities wheel_velocities;
+  // Do not rotate but flip the velocities
+  double vx = -linX;
+  double vy = -linY;
+
+  // Calculate the wheels geometric constant
+  double wheels_k = std::sqrt(wheels_a * wheels_a + wheels_b * wheels_b) * sin(M_PI_4 - atan2(wheels_b, wheels_a));
+  double k = sqrt(2)/2;
+
+  wheel_velocities.w0_vel = (std::sqrt(2) / wheels_radius) * (-1 * k * vx + k * vy + wheels_k * ang);
+  wheel_velocities.w1_vel = (std::sqrt(2) / wheels_radius) * (-1 * k * vx - k * vy + wheels_k * ang);
+  wheel_velocities.w2_vel = (std::sqrt(2) / wheels_radius) * (k * vx - k * vy + wheels_k * ang);
+  wheel_velocities.w3_vel = (std::sqrt(2) / wheels_radius) * (k * vx + k * vy + wheels_k * ang);
+  return wheel_velocities;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void MecanumDriveController::update(const ros::Time& time, const ros::Duration& period)
@@ -259,16 +298,20 @@ void MecanumDriveController::update(const ros::Time& time, const ros::Duration& 
 
   // Compute wheels velocities (this is the actual ik):
   // NOTE: the input desired twist (from topic /cmd_vel) is a body twist.
-  const double w0_vel = 1.0 / wheels_radius_ * (curr_cmd.linX - curr_cmd.linY - wheels_k_ * curr_cmd.ang);
-  const double w1_vel = 1.0 / wheels_radius_ * (curr_cmd.linX + curr_cmd.linY - wheels_k_ * curr_cmd.ang);
-  const double w2_vel = 1.0 / wheels_radius_ * (curr_cmd.linX - curr_cmd.linY + wheels_k_ * curr_cmd.ang);
-  const double w3_vel = 1.0 / wheels_radius_ * (curr_cmd.linX + curr_cmd.linY + wheels_k_ * curr_cmd.ang);
+  MecanumDriveController::WheelVelocities wheel_vels;
+  if (use_flipped_geometry_) {
+    wheel_vels = MecanumDriveController::calculateIkFlipped(curr_cmd.linX, curr_cmd.linY, curr_cmd.ang,
+                                                            wheels_radius_, wheel_separation_x_, wheel_separation_y_);
+  } else {
+    wheel_vels = MecanumDriveController::calculateIkNormal(curr_cmd.linX, curr_cmd.linY, curr_cmd.ang,
+                                                           wheels_radius_, wheel_separation_x_, wheel_separation_y_);
+  }
 
   // Set wheels velocities:
-  wheel0_jointHandle_.setCommand(w0_vel);
-  wheel1_jointHandle_.setCommand(w1_vel);
-  wheel2_jointHandle_.setCommand(w2_vel);
-  wheel3_jointHandle_.setCommand(w3_vel);
+  wheel0_jointHandle_.setCommand(wheel_vels.w0_vel);
+  wheel1_jointHandle_.setCommand(wheel_vels.w1_vel);
+  wheel2_jointHandle_.setCommand(wheel_vels.w2_vel);
+  wheel3_jointHandle_.setCommand(wheel_vels.w3_vel);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -302,7 +345,7 @@ void MecanumDriveController::cmdVelCallback(const geometry_msgs::Twist& command)
 {
   if(isRunning())
   {
-    command_struct_.ang   = -command.angular.z; // HACK TO FIX CONTROL FOR DEMO -JDB
+    command_struct_.ang   = command.angular.z;
     command_struct_.linX  = command.linear.x;
     command_struct_.linY  = command.linear.y;
     command_struct_.stamp = ros::Time::now();
@@ -331,10 +374,10 @@ bool MecanumDriveController::setWheelParamsFromUrdf(ros::NodeHandle& root_nh,
   bool has_wheel_separation_x = controller_nh.getParam("wheel_separation_x", wheel_separation_x_);
   bool has_wheel_separation_y = controller_nh.getParam("wheel_separation_y", wheel_separation_y_);
 
-  // Check to see if both X and Y separations are overrided.
+  // Check to see if both X and Y separations are overriden.
   if (has_wheel_separation_x != has_wheel_separation_y)
   {
-    ROS_ERROR_STREAM_NAMED(name_, "Only one wheel separation overrided");
+    ROS_ERROR_STREAM_NAMED(name_, "Only one wheel separation overriden, override both or none.");
     return false;
   }
 
@@ -350,7 +393,7 @@ bool MecanumDriveController::setWheelParamsFromUrdf(ros::NodeHandle& root_nh,
     std::string robot_model_str="";
     if(!res || !root_nh.getParam(model_param_name,robot_model_str))
     {
-      ROS_ERROR_NAMED(name_, "Robot descripion couldn't be retrieved from param server.");
+      ROS_ERROR_NAMED(name_, "Robot description couldn't be retrieved from param server.");
       return false;
     }
 
@@ -412,15 +455,15 @@ bool MecanumDriveController::setWheelParamsFromUrdf(ros::NodeHandle& root_nh,
 
       wheels_k_ = (-(-wheel0_x - wheel0_y) - (wheel1_x - wheel1_y) + (-wheel2_x - wheel2_y) + (wheel3_x - wheel3_y))
                   / 4.0;
+      wheel_separation_x_ = wheels_k_ / 2.0;
+      wheel_separation_y_ = wheels_k_ / 2.0;
     }
     else
     {
-      ROS_INFO_STREAM("Wheel seperation in X: " << wheel_separation_x_);
-      ROS_INFO_STREAM("Wheel seperation in Y: " << wheel_separation_y_);
-
       // The seperation is the total distance between the wheels in X and Y.
-
-      wheels_k_ = (wheel_separation_x_ + wheel_separation_y_) / 2.0;
+      wheel_separation_y_ = wheel_separation_y_ / 2.0;
+      wheel_separation_x_ = wheel_separation_x_ / 2.0;
+      wheels_k_ = (wheel_separation_x_ + wheel_separation_y_);
     }
 
     if (lookup_wheel_radius)
@@ -444,7 +487,7 @@ bool MecanumDriveController::setWheelParamsFromUrdf(ros::NodeHandle& root_nh,
           abs(wheel0_radius - wheel2_radius) > 1e-3 ||
           abs(wheel0_radius - wheel3_radius) > 1e-3)
       {
-        ROS_ERROR_STREAM_NAMED(name_, "Wheels radius are not egual");
+        ROS_ERROR_STREAM_NAMED(name_, "Wheels radius are not equal");
         return false;
       }
 
@@ -453,7 +496,8 @@ bool MecanumDriveController::setWheelParamsFromUrdf(ros::NodeHandle& root_nh,
   }
 
   ROS_INFO_STREAM("Wheel radius: " << wheels_radius_);
-
+  ROS_INFO_STREAM("Wheel seperation in X: " << wheel_separation_x_);
+  ROS_INFO_STREAM("Wheel seperation in Y: " << wheel_separation_y_);
   // Set wheel params for the odometry computation
   odometry_.setWheelsParams(wheels_k_, wheels_radius_);
 
