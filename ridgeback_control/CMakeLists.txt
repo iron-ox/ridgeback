@@ -47,6 +47,8 @@ if(CATKIN_ENABLE_TESTING)
   target_link_libraries(mecanum_drive_controller_test mecanum_drive_controller ${catkin_LIBRARIES} gtest_main)
   catkin_add_gtest(speed_limiter_test test/speed_limiter_test.cpp)
   target_link_libraries(speed_limiter_test mecanum_drive_controller ${catkin_LIBRARIES} gtest_main)
+  catkin_add_gtest(odometry_test test/odometry_test.cpp)
+  target_link_libraries(odometry_test mecanum_drive_controller ${catkin_LIBRARIES} gtest_main)
 
   roslaunch_add_file_check(launch/control.launch)
   roslaunch_add_file_check(launch/teleop.launch)
