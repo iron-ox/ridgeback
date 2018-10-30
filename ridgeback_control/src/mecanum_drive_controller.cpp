@@ -206,6 +206,10 @@ MecanumDriveController::WheelVelocities MecanumDriveController::calculateIkFlipp
                                                                                    double wheels_radius, double wheels_a,
                                                                                    double wheels_b)
 {
+  // The inverse kinematics used are taken from:
+  // http://dx.doi.org/10.4236/ica.2013.42021
+  // And then changed to match the real output that we needed to move the robot
+  // properly.
   MecanumDriveController::WheelVelocities wheel_velocities;
   // Do not rotate but flip the velocities
   double vx = -linX;

@@ -109,6 +109,8 @@ Odometry::BodyVelocities Odometry::calculateKinematicsFlipped(double wheel0_vel,
                                                               double wheel3_vel, double wheels_radius, double wheels_a,
                                                               double wheels_b)
 {
+  // The formward kinetics model was obtained doing the pseudoinverse of the inverse kinematics
+  // model used for the flipped configuration.
   Odometry::BodyVelocities velocities;
   double wheels_k = std::sqrt(wheels_a * wheels_a + wheels_b * wheels_b) * sin(M_PI_4 - atan2(wheels_b, wheels_a));
   double k = sqrt(2) / 2;
