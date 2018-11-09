@@ -110,6 +110,7 @@ bool MecanumDriveController::init(hardware_interface::VelocityJointInterface* hw
 
   // Option use_flipped_geometry
   controller_nh.param("use_flipped_geometry", use_flipped_geometry_, use_flipped_geometry_);
+  odometry_.useFlippedGeometry(use_flipped_geometry_);
   ROS_INFO_STREAM_NAMED(name_, "Use the flipped geometry mode: " << use_flipped_geometry_ << ".");
 
   // Get joint names from the parameter server
@@ -205,6 +206,10 @@ MecanumDriveController::WheelVelocities MecanumDriveController::calculateIkFlipp
                                                                                    double wheels_radius, double wheels_a,
                                                                                    double wheels_b)
 {
+  // The inverse kinematics used are taken from:
+  // http://dx.doi.org/10.4236/ica.2013.42021
+  // And then changed to match the real output that we needed to move the robot
+  // properly.
   MecanumDriveController::WheelVelocities wheel_velocities;
   // Do not rotate but flip the velocities
   double vx = -linX;
@@ -499,7 +504,7 @@ bool MecanumDriveController::setWheelParamsFromUrdf(ros::NodeHandle& root_nh,
   ROS_INFO_STREAM("Wheel seperation in X: " << wheel_separation_x_);
   ROS_INFO_STREAM("Wheel seperation in Y: " << wheel_separation_y_);
   // Set wheel params for the odometry computation
-  odometry_.setWheelsParams(wheels_k_, wheels_radius_);
+  odometry_.setWheelsParams(wheel_separation_x_, wheel_separation_y_, wheels_radius_);
 
   return true;
 }

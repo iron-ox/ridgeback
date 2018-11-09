@@ -61,6 +61,17 @@ class Odometry
 {
 public:
 
+  struct BodyVelocities {
+    double linearX;
+    double linearY;
+    double angular;
+
+    BodyVelocities() {};
+
+    BodyVelocities(double linearX, double linearY, double angular):
+      linearX(linearX), linearY(linearY), angular(angular) {}
+  };
+
   /// Integration function, used to integrate the odometry:
   typedef boost::function<void(double, double, double)> IntegrationFunction;
 
@@ -156,7 +167,17 @@ public:
    * \param wheels_k       Wheels geometric param (used in mecanum wheels' ik) [m]
    * \param wheels_radius  Wheels radius [m]
    */
-  void setWheelsParams(double wheels_k, double wheels_radius);
+  void setWheelsParams(double wheels_a, double wheels_b, double wheels_radius);
+
+  void useFlippedGeometry(bool use_flipped_geometry);
+
+  static BodyVelocities calculateKinematicsNormal(double wheel0_vel, double wheel1_vel, double wheel2_vel,
+                                                  double wheel3_vel, double wheels_radius, double wheels_a,
+                                                  double wheels_b);
+
+  static BodyVelocities calculateKinematicsFlipped(double wheel0_vel, double wheel1_vel, double wheel2_vel,
+                                                   double wheel3_vel, double wheels_radius, double wheels_a,
+                                                   double wheels_b);
 
 private:
 
@@ -186,10 +207,12 @@ private:
   double angular_; // [rad/s]
 
   /// Wheels kinematic parameters [m]:
-  double wheels_k_;
+  double wheels_a_;
+  double wheels_b_;
   double wheels_radius_;
+  bool use_flipped_geometry_;
 
-  /// Rolling mean accumulators for the linar and angular velocities:
+  /// Rolling mean accumulators for the linear and angular velocities:
   size_t velocity_rolling_window_size_;
   RollingMeanAcc linearX_acc_;
   RollingMeanAcc linearY_acc_;

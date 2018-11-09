@@ -59,7 +59,8 @@ Odometry::Odometry(size_t velocity_rolling_window_size)
 , linearX_(0.0)
 , linearY_(0.0)
 , angular_(0.0)
-, wheels_k_(0.0)
+, wheels_a_(0.0)
+, wheels_b_(0.0)
 , wheels_radius_(0.0)
 , velocity_rolling_window_size_(velocity_rolling_window_size)
 , linearX_acc_(RollingWindow::window_size = velocity_rolling_window_size)
@@ -67,6 +68,11 @@ Odometry::Odometry(size_t velocity_rolling_window_size)
 , angular_acc_(RollingWindow::window_size = velocity_rolling_window_size)
 , integrate_fun_(boost::bind(&Odometry::integrateExact, this, _1, _2, _3))
 {
+}
+
+void Odometry::useFlippedGeometry(bool use_flipped_geometry)
+{
+  use_flipped_geometry_ = use_flipped_geometry;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,6 +87,46 @@ void Odometry::init(const ros::Time& time)
   timestamp_ = time;
 }
 
+Odometry::BodyVelocities Odometry::calculateKinematicsNormal(double wheel0_vel, double wheel1_vel, double wheel2_vel,
+                                                             double wheel3_vel, double wheels_radius, double wheels_a,
+                                                             double wheels_b)
+{
+  /// Compute forward kinematics (i.e. compute mobile robot's body twist out of its wheels velocities):
+  /// NOTE: we use the IK of the mecanum wheels which we invert using a pseudo-inverse.
+  /// NOTE: in the diff drive the velocity is filtered out, but we prefer to return it raw and let the user perform
+  ///       post-processing at will. We prefer this way of doing as filtering introduces delay (which makes it
+  ///       difficult to interpret and compare behavior curves).
+  Odometry::BodyVelocities velocities;
+  double wheels_k = wheels_a + wheels_b;
+  velocities.linearX = 0.25 * wheels_radius * (wheel0_vel + wheel1_vel + wheel2_vel + wheel3_vel);
+  velocities.linearY = 0.25 * wheels_radius * (-wheel0_vel + wheel1_vel - wheel2_vel + wheel3_vel);
+  velocities.angular = 0.25 * wheels_radius / wheels_k * (-wheel0_vel - wheel1_vel + wheel2_vel + wheel3_vel);
+
+  return velocities;
+}
+
+Odometry::BodyVelocities Odometry::calculateKinematicsFlipped(double wheel0_vel, double wheel1_vel, double wheel2_vel,
+                                                              double wheel3_vel, double wheels_radius, double wheels_a,
+                                                              double wheels_b)
+{
+  // The formward kinetics model was obtained doing the pseudoinverse of the inverse kinematics
+  // model used for the flipped configuration.
+  Odometry::BodyVelocities velocities;
+  double wheels_k = std::sqrt(wheels_a * wheels_a + wheels_b * wheels_b) * sin(M_PI_4 - atan2(wheels_b, wheels_a));
+  double k = sqrt(2) / 2;
+
+  double A = wheels_radius / std::sqrt(2);
+
+  velocities.linearX = A * (wheels_k * wheel0_vel + wheels_k * wheel1_vel - wheels_k * wheel2_vel - wheels_k * wheel3_vel);
+  velocities.linearY = A * (-1 * wheels_k * wheel0_vel + wheels_k * wheel1_vel + wheels_k * wheel2_vel - wheels_k * wheel3_vel);
+  velocities.angular = A * (-1 * k * wheel0_vel - k * wheel1_vel - k * wheel2_vel - k * wheel3_vel);
+
+  velocities.linearX = -velocities.linearX;
+  velocities.linearY = -velocities.linearY;
+
+  return velocities;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool Odometry::update(double wheel0_vel, double wheel1_vel, double wheel2_vel, double wheel3_vel, const ros::Time &time)
 {
@@ -91,14 +137,16 @@ bool Odometry::update(double wheel0_vel, double wheel1_vel, double wheel2_vel, d
 
   timestamp_ = time;
 
-  /// Compute forward kinematics (i.e. compute mobile robot's body twist out of its wheels velocities):
-  /// NOTE: we use the IK of the mecanum wheels which we invert using a pseudo-inverse.
-  /// NOTE: in the diff drive the velocity is filtered out, but we prefer to return it raw and let the user perform
-  ///       post-processing at will. We prefer this way of doing as filtering introduces delay (which makes it
-  ///       difficult to interpret and compare behavior curves).
-  linearX_ = 0.25 * wheels_radius_              * ( wheel0_vel + wheel1_vel + wheel2_vel + wheel3_vel);
-  linearY_ = 0.25 * wheels_radius_              * (-wheel0_vel + wheel1_vel - wheel2_vel + wheel3_vel);
-  angular_ = 0.25 * wheels_radius_  / wheels_k_ * (-wheel0_vel - wheel1_vel + wheel2_vel + wheel3_vel);
+  BodyVelocities velocities;
+  if (use_flipped_geometry_) {
+    velocities = calculateKinematicsFlipped(wheel0_vel, wheel1_vel, wheel2_vel, wheel3_vel, wheels_radius_, wheels_a_, wheels_b_);
+  } else {
+    velocities = calculateKinematicsNormal(wheel0_vel, wheel1_vel, wheel2_vel, wheel3_vel, wheels_radius_, wheels_a_, wheels_b_);
+  }
+
+  linearX_ = velocities.linearX;
+  linearY_ = velocities.linearY;
+  angular_ = velocities.angular;
 
   /// Integrate odometry.
   integrate_fun_(linearX_ * dt, linearY_ * dt, angular_ * dt);
@@ -121,9 +169,10 @@ void Odometry::updateOpenLoop(double linearX, double linearY, double angular, co
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void Odometry::setWheelsParams(double wheels_k, double wheels_radius)
+void Odometry::setWheelsParams(double wheels_a, double wheels_b, double wheels_radius)
 {
-  wheels_k_ = wheels_k;
+  wheels_a_ = wheels_a;
+  wheels_b_ = wheels_b;
 
   wheels_radius_ = wheels_radius;
 }
