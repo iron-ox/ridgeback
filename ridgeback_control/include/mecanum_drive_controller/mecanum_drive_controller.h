@@ -42,6 +42,7 @@
 #include <urdf/model.h>
 
 #include <nav_msgs/Odometry.h>
+#include <ridgeback_msgs/WheelVelocities.h>
 #include <tf/tfMessage.h>
 
 #include <realtime_tools/realtime_buffer.h>
@@ -145,6 +146,8 @@ private:
   /// Odometry related:
   boost::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::Odometry> > odom_pub_;
   boost::shared_ptr<realtime_tools::RealtimePublisher<tf::tfMessage> > tf_odom_pub_;
+  boost::shared_ptr<realtime_tools::RealtimePublisher<ridgeback_msgs::WheelVelocities> >
+      wheel_vel_pub_;
   Odometry odometry_;
   geometry_msgs::TransformStamped odom_frame_;
 

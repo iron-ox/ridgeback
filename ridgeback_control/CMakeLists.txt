@@ -7,7 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
   realtime_tools
   tf
   nav_msgs
-  roslaunch)
+  roslaunch
+  ridgeback_msgs)
 
 set(mecanum_drive_controller_sources
   src/mecanum_drive_controller.cpp
@@ -16,6 +17,8 @@ set(mecanum_drive_controller_sources
 )
 
 catkin_package(
+  CATKIN_DEPENDS
+  ridgeback_msgs
   INCLUDE_DIRS include
   LIBRARIES mecanum_drive_controller
   CATKIN_DEPENDS controller_interface realtime_tools
