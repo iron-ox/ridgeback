@@ -246,6 +246,14 @@ void MecanumDriveController::update(const ros::Time& time, const ros::Duration& 
 
     // Estimate twist (using joint information) and integrate
     odometry_.update(wheel0_vel, wheel1_vel, wheel2_vel, wheel3_vel, time);
+
+    if (wheel_vel_pub_->trylock()) {
+      wheel_vel_pub_->msg_.header.stamp = time;
+      wheel_vel_pub_->msg_.wheel_id = {"wheel0", "wheel1", "wheel2", "wheel3"};
+      wheel_vel_pub_->msg_.cmd_vel = {static_cast<float>(wheel0_vel), static_cast<float>(wheel1_vel),
+                                      static_cast<float>(wheel2_vel), static_cast<float>(wheel3_vel)};
+      wheel_vel_pub_->unlockAndPublish();
+    }
   }
 
   // Publish odometry message
@@ -597,6 +605,11 @@ void MecanumDriveController::setupRtPublishersMsg(ros::NodeHandle& root_nh, ros:
   tf_odom_pub_->msg_.transforms[0].transform.translation.z = 0.0;
   tf_odom_pub_->msg_.transforms[0].child_frame_id = base_frame_id_;
   tf_odom_pub_->msg_.transforms[0].header.frame_id = "odom";
+
+  // Setup odometry msg.
+  wheel_vel_pub_.reset(
+      new realtime_tools::RealtimePublisher<ridgeback_msgs::WheelVelocities>(
+          controller_nh, "wheel_cmd_vel", 100));
 }
 
 } // namespace mecanum_drive_controller

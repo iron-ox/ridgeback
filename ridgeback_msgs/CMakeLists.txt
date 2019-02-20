@@ -12,6 +12,7 @@ add_message_files(
   Lights.msg
   RGB.msg
   Status.msg
+  WheelVelocities.msg
 )
 
 generate_messages(
