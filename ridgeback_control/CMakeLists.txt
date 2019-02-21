@@ -29,6 +29,7 @@ include_directories(
 )
 
 add_library(mecanum_drive_controller ${mecanum_drive_controller_headers} ${mecanum_drive_controller_sources})
+add_dependencies(mecanum_drive_controller ${catkin_EXPORTED_TARGETS})
 target_link_libraries(mecanum_drive_controller ${catkin_LIBRARIES})
 
 install(TARGETS mecanum_drive_controller
