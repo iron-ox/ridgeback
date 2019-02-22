@@ -249,6 +249,9 @@ void MecanumDriveController::update(const ros::Time& time, const ros::Duration& 
 
     if (wheel_vel_pub_->trylock()) {
       wheel_vel_pub_->msg_.header.stamp = time;
+      wheel_vel_pub_->msg_.vx = last_cmd_.linX;
+      wheel_vel_pub_->msg_.vy = last_cmd_.linY;
+      wheel_vel_pub_->msg_.omega = last_cmd_.ang;
       wheel_vel_pub_->msg_.wheel_id = {"wheel0", "wheel1", "wheel2", "wheel3"};
       wheel_vel_pub_->msg_.cmd_vel = {static_cast<float>(wheel0_vel), static_cast<float>(wheel1_vel),
                                       static_cast<float>(wheel2_vel), static_cast<float>(wheel3_vel)};
